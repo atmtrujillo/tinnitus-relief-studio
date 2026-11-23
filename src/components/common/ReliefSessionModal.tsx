@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, ClipboardCheck } from 'lucide-react';
 import { useAppContext } from '../../store/AppContext';
 import { useEngine } from '../../hooks';
@@ -21,28 +21,46 @@ export function ReliefSessionModal({
 
   const sourceInfo = snap.info ?? snap.lastInfo;
   const [technique, setTechnique] = useState(sourceInfo?.technique ?? 'Sound Therapy');
-  const [frequency, setFrequency] = useState<number>(
-    sourceInfo?.frequency ?? state.tinnitusProfile?.frequency ?? 4000
-  );
+  const [frequencyInput, setFrequencyInput] = useState<string>(() => {
+    const f = sourceInfo?.frequency ?? state.tinnitusProfile?.frequency;
+    return f != null ? String(Math.round(f)) : '';
+  });
   const [durationSec, setDurationSec] = useState<number>(() =>
     Math.max(0, Math.round(engine.elapsedMs() / 1000))
   );
   const [ratingBefore, setRatingBefore] = useState(initialRatingBefore);
   const [ratingAfter, setRatingAfter] = useState(initialRatingBefore);
   const [notes, setNotes] = useState('');
+  const wasOpenRef = useRef(false);
 
+  // Initialise fields only when transitioning from closed -> open so pressing
+  // Esc (which stops audio and clears snap.info) does not wipe user input.
   useEffect(() => {
-    if (!open) return;
-    const info = snap.info ?? snap.lastInfo;
-    if (info?.technique) setTechnique(info.technique);
-    if (info?.frequency != null) setFrequency(Math.round(info.frequency));
-    else if (state.tinnitusProfile) setFrequency(Math.round(state.tinnitusProfile.frequency));
-    setDurationSec(Math.max(0, Math.round(engine.elapsedMs() / 1000)));
-    setRatingBefore(initialRatingBefore);
-    setRatingAfter(initialRatingBefore);
+    if (open && !wasOpenRef.current) {
+      const info = snap.info ?? snap.lastInfo;
+      setTechnique(info?.technique ?? 'Sound Therapy');
+      if (info && info.frequency !== undefined) {
+        setFrequencyInput(info.frequency != null ? String(Math.round(info.frequency)) : '');
+      } else if (state.tinnitusProfile) {
+        setFrequencyInput(String(Math.round(state.tinnitusProfile.frequency)));
+      } else {
+        setFrequencyInput('');
+      }
+      setDurationSec(Math.max(0, Math.round(engine.elapsedMs() / 1000)));
+      setRatingBefore(initialRatingBefore);
+      setRatingAfter(initialRatingBefore);
+    }
+    wasOpenRef.current = open;
   }, [open, snap.info, snap.lastInfo, state.tinnitusProfile, initialRatingBefore]);
 
   if (!open) return null;
+
+  const trimmedFreq = frequencyInput.trim();
+  const parsedFreq = trimmedFreq === '' ? null : parseInt(trimmedFreq, 10);
+  const validFreq =
+    parsedFreq != null && Number.isFinite(parsedFreq)
+      ? Math.max(20, Math.min(20000, parsedFreq))
+      : null;
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +71,7 @@ export function ReliefSessionModal({
         date: new Date().toISOString(),
         technique: technique.trim() || 'Experiment',
         source: sourceInfo?.source ?? 'none',
-        frequency: Number.isFinite(frequency) ? frequency : null,
+        frequency: validFreq,
         duration: Math.max(0, durationSec),
         ratingBefore,
         ratingAfter,
@@ -102,14 +120,15 @@ export function ReliefSessionModal({
             </div>
             <div>
               <label className="text-xs text-gray-400 block mb-1">
-                Frequency ({formatFrequency(frequency)})
+                Frequency ({validFreq != null ? formatFrequency(validFreq) : 'Broadband'})
               </label>
               <input
                 type="number"
                 min={20}
                 max={20000}
-                value={frequency}
-                onChange={(e) => setFrequency(parseInt(e.target.value, 10) || 0)}
+                placeholder="Blank = Broadband"
+                value={frequencyInput}
+                onChange={(e) => setFrequencyInput(e.target.value)}
                 className="input-field text-sm font-mono"
               />
             </div>

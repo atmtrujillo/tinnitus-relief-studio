@@ -76,7 +76,11 @@ export const storage = {
     }
   },
   remove(key: string): void {
-    localStorage.removeItem(`trs-${key}`);
+    try {
+      localStorage.removeItem(`trs-${key}`);
+    } catch {
+      // Storage might be unavailable
+    }
   },
 };
 

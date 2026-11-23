@@ -23,7 +23,7 @@ function makeLayer(kind: LayerKind, tinnitusFreq: number): TherapyLayer {
     id: generateId(),
     kind,
     enabled: true,
-    color: kind === 'notched' ? 'pink' : 'pink',
+    color: 'pink',
     frequency: tinnitusFreq,
     bandwidthOct: kind === 'notched' ? 0.5 : 0.35,
     waveform: 'sine',
@@ -52,13 +52,6 @@ export function SoundTherapy() {
   const isThisPlaying = snap.status === 'playing' && snap.info?.source === 'therapy';
   const isThisActive = snap.status !== 'idle' && snap.info?.source === 'therapy';
 
-  // Live-update therapy layers whenever they change while playing
-  useEffect(() => {
-    const h = engine.getHandle<TherapyHandle>('therapy');
-    if (!h) return;
-    h.update({ layers });
-  }, [layers]);
-
   const describeMix = useCallback((list: TherapyLayer[]) => {
     const active = list.filter((l) => l.enabled);
     if (active.length === 0) return 'Custom Mix';
@@ -74,6 +67,23 @@ export function SoundTherapy() {
       )
       .join(' + ');
   }, []);
+
+  // Live-update therapy layers and TransportBar info whenever layers change while playing
+  useEffect(() => {
+    const h = engine.getHandle<TherapyHandle>('therapy');
+    if (!h) return;
+    h.update({ layers });
+    const label = describeMix(layers);
+    const primaryFreq =
+      layers.find((l) => l.enabled && l.kind !== 'noise')?.frequency ??
+      state.tinnitusProfile?.frequency ??
+      null;
+    engine.updateInfo('therapy', {
+      label: `Therapy: ${label}`,
+      technique: `Sound Therapy (${label})`,
+      frequency: primaryFreq,
+    });
+  }, [layers, describeMix, state.tinnitusProfile]);
 
   const handlePlay = useCallback(async () => {
     const label = describeMix(layers);

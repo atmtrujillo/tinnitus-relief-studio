@@ -17,8 +17,9 @@ Thank you for your interest in contributing to **Tinnitus Relief Studio**! Contr
    ```bash
    npm run dev
    ```
-4. Verify TypeScript typechecking and the production build before committing:
+4. Run the test suite and verify TypeScript typechecking and the production build before committing:
    ```bash
+   npm test
    npm run build
    ```
 

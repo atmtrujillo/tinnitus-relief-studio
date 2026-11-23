@@ -1,10 +1,10 @@
 import { AlertTriangle, X } from 'lucide-react';
-import { useState } from 'react';
+import { useAppContext } from '../../store/AppContext';
 
 export function SafetyBanner() {
-  const [dismissed, setDismissed] = useState(false);
+  const { state, dispatch } = useAppContext();
 
-  if (dismissed) return null;
+  if (state.settings.safetyAcknowledged) return null;
 
   return (
     <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 flex items-start gap-3">
@@ -20,7 +20,8 @@ export function SafetyBanner() {
         </p>
       </div>
       <button
-        onClick={() => setDismissed(true)}
+        onClick={() => dispatch({ type: 'UPDATE_SETTINGS', payload: { safetyAcknowledged: true } })}
+        aria-label="Acknowledge and dismiss safety notice"
         className="text-amber-400/60 hover:text-amber-400 transition-colors"
       >
         <X className="w-4 h-4" />

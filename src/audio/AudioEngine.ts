@@ -47,6 +47,7 @@ export type EngineStatus = 'idle' | 'playing' | 'paused';
 export interface EngineSnapshot {
   supported: boolean;
   status: EngineStatus;
+  isFading: boolean;
   info: ProgramInfo | null;
   lastInfo: ProgramInfo | null;
   masterVolume: number;
@@ -67,7 +68,9 @@ export function volumeToGain(v: number): number {
 }
 
 export function volumeToDb(v: number): number {
-  return v <= 0 ? -Infinity : MIN_DB * (1 - v);
+  if (v <= 0) return -Infinity;
+  if (v >= 1) return 0;
+  return MIN_DB * (1 - v);
 }
 
 type Ctor = typeof AudioContext;
@@ -85,19 +88,28 @@ interface ActiveProgram {
   fadeOut: number;
 }
 
-class AudioEngine {
+interface FadingProgram {
+  bus: GainNode;
+  handle: ProgramHandle;
+  timer: number;
+}
+
+export class AudioEngine {
   private ctx: AudioContext | null = null;
   private mix: GainNode | null = null;
   private scope: AnalyserNode | null = null;
   private spectrum: AnalyserNode | null = null;
   private master: GainNode | null = null;
   private current: ActiveProgram | null = null;
+  private fading = new Set<FadingProgram>();
   private listeners = new Set<() => void>();
   private idleTimer: number | undefined;
+  private startGen = 0;
 
   private snapshot: EngineSnapshot = {
     supported: !!getCtor(),
     status: 'idle',
+    isFading: false,
     info: null,
     lastInfo: null,
     masterVolume: 0.15,
@@ -238,19 +250,30 @@ class AudioEngine {
     build: (ctx: AudioContext, out: AudioNode) => H,
     opts: { fadeIn?: number; fadeOut?: number } = {}
   ): Promise<H | null> {
+    const gen = ++this.startGen;
     let ctx: AudioContext;
     try {
       ctx = await this.ensureRunning();
     } catch (e) {
-      this.patch({ error: e instanceof Error ? e.message : 'Unable to start audio.' });
+      if (gen === this.startGen) {
+        this.patch({ error: e instanceof Error ? e.message : 'Unable to start audio.' });
+      }
       return null;
     }
 
+    // Abort if stop(), panic(), or another start() happened while awaiting resume().
+    if (gen !== this.startGen) return null;
+
     this.teardown(0.02);
+
+    // Ensure mix bus gain is restored to unity (e.g. after a faded pause).
+    const mix = this.mix!;
+    hold(mix.gain, ctx.currentTime);
+    mix.gain.setValueAtTime(1, ctx.currentTime);
 
     const bus = ctx.createGain();
     bus.gain.value = 0;
-    bus.connect(this.mix!);
+    bus.connect(mix);
 
     let handle: H;
     try {
@@ -304,18 +327,65 @@ class AudioEngine {
     hold(cur.bus.gain, t);
     cur.bus.gain.linearRampToValueAtTime(0, t + f);
     cur.handle.stop(t + f + 0.01);
-    window.setTimeout(() => {
-      cur.handle.dispose();
+
+    const entry: FadingProgram = {
+      bus: cur.bus,
+      handle: cur.handle,
+      timer: 0,
+    };
+    entry.timer = window.setTimeout(() => {
+      this.fading.delete(entry);
+      entry.handle.dispose();
       try {
-        cur.bus.disconnect();
+        entry.bus.disconnect();
       } catch {
         /* already disconnected */
       }
+      this.patch({ isFading: this.fading.size > 0 });
     }, (f + 0.1) * 1000);
+    this.fading.add(entry);
+    this.patch({ isFading: true });
+  }
+
+  /** Immediately cut short any programs currently fading out (used by panic). */
+  private abortFading(fade = 0.01) {
+    if (this.fading.size === 0) return;
+    const ctx = this.ctx;
+    const entries = Array.from(this.fading);
+    this.fading.clear();
+
+    for (const entry of entries) {
+      window.clearTimeout(entry.timer);
+      if (ctx && ctx.state === 'running') {
+        const t = ctx.currentTime;
+        const f = Math.max(0.005, fade);
+        hold(entry.bus.gain, t);
+        entry.bus.gain.linearRampToValueAtTime(0, t + f);
+        entry.handle.stop(t + f + 0.005);
+        window.setTimeout(() => {
+          entry.handle.dispose();
+          try {
+            entry.bus.disconnect();
+          } catch {
+            /* already disconnected */
+          }
+        }, (f + 0.06) * 1000);
+      } else {
+        entry.handle.stop(0);
+        entry.handle.dispose();
+        try {
+          entry.bus.disconnect();
+        } catch {
+          /* already disconnected */
+        }
+      }
+    }
+    this.patch({ isFading: false });
   }
 
   /** Stop playback. Uses the program's own fade-out unless one is given. */
   stop(fade?: number) {
+    this.startGen++;
     if (!this.current) return;
     const f = fade ?? this.current.fadeOut;
     this.teardown(f);
@@ -324,28 +394,67 @@ class AudioEngine {
     // Suspend the context when idle to save CPU/battery (mobile especially).
     window.clearTimeout(this.idleTimer);
     this.idleTimer = window.setTimeout(() => {
-      if (!this.current && this.ctx?.state === 'running') void this.ctx.suspend();
+      if (!this.current && this.fading.size === 0 && this.ctx?.state === 'running') {
+        void this.ctx.suspend();
+      }
     }, (f + 2) * 1000);
   }
 
-  /** Immediate stop (≈10 ms de-click ramp). Bound to the STOP button and Esc. */
+  /** Immediate stop (≈10 ms de-click ramp), including any in-flight fade-outs. */
   panic() {
-    this.stop(0.01);
+    this.startGen++;
+    this.abortFading(0.01);
+    if (this.current) {
+      this.stop(0.01);
+      // Immediately silence the newly-fading entry on panic as well? No, 10 ms IS the de-click ramp,
+      // and `isFading` will clear automatically after ~110 ms.
+    } else if (this.ctx?.state === 'running') {
+      window.clearTimeout(this.idleTimer);
+      this.idleTimer = window.setTimeout(() => {
+        if (!this.current && this.fading.size === 0 && this.ctx?.state === 'running') {
+          void this.ctx.suspend();
+        }
+      }, 200);
+    }
   }
 
   async pause() {
     if (!this.ctx || this.snapshot.status !== 'playing') return;
+    const gen = ++this.startGen;
     this.patch({ status: 'paused', accumulatedMs: this.elapsedNow(), playStartedAt: null });
+
+    // Brief de-click ramp before suspending the AudioContext.
+    if (this.mix && this.ctx.state === 'running') {
+      const t = this.ctx.currentTime;
+      hold(this.mix.gain, t);
+      this.mix.gain.linearRampToValueAtTime(0, t + 0.015);
+      await new Promise<void>((r) => window.setTimeout(r, 20));
+      if (gen !== this.startGen || !this.ctx) return;
+    }
+
     await this.ctx.suspend();
   }
 
   async resume() {
     if (!this.ctx || this.snapshot.status !== 'paused' || !this.current) return;
+    const gen = ++this.startGen;
     try {
+      if (this.mix) {
+        hold(this.mix.gain, this.ctx.currentTime);
+        this.mix.gain.setValueAtTime(0, this.ctx.currentTime);
+      }
       await this.ctx.resume();
+      if (gen !== this.startGen || !this.ctx || !this.current) return;
+      if (this.mix) {
+        const t = this.ctx.currentTime;
+        this.mix.gain.setValueAtTime(0, t);
+        this.mix.gain.linearRampToValueAtTime(1, t + 0.015);
+      }
       this.patch({ status: 'playing', playStartedAt: Date.now(), contextState: this.ctx.state });
     } catch (e) {
-      this.patch({ error: e instanceof Error ? e.message : 'Unable to resume audio.' });
+      if (gen === this.startGen) {
+        this.patch({ error: e instanceof Error ? e.message : 'Unable to resume audio.' });
+      }
     }
   }
 

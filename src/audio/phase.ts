@@ -56,19 +56,34 @@ export interface PhaseHandle extends ProgramHandle {
 
 const HEADROOM = 0.5;
 
-function offsetDelaySeconds(freq: number, offsetDeg: number): number {
-  const norm = ((offsetDeg % 360) + 360) % 360;
-  return norm / 360 / Math.max(20, freq);
+/**
+ * Symmetric sub-period delays for paths A and B so fine phase offsets across
+ * [-180°, +180°] vary continuously through 0° without jumping a full cycle.
+ * At offsetDeg = 0, both paths share the exact same half-period delay so
+ * A + B cancels to digital silence.
+ */
+export function phaseDelays(freq: number, offsetDeg: number): { delayA: number; delayB: number } {
+  const f = Math.max(20, freq);
+  const clampedOffset = clamp(offsetDeg, -180, 180);
+  return {
+    delayA: 0.5 / f,
+    delayB: (0.5 + clampedOffset / 360) / f,
+  };
 }
 
 export function buildPhase(ctx: AudioContext, out: AudioNode, initial: PhaseParams): PhaseHandle {
   let p = { ...initial };
+  const nyquistSafe = Math.min(20000, Math.max(20, ctx.sampleRate / 2 - 50));
+  const f0 = clamp(p.frequency, 20, nyquistSafe);
+  const initDelays = phaseDelays(f0, p.offsetDeg);
 
   const osc = ctx.createOscillator();
   osc.type = p.waveform;
-  osc.frequency.value = clamp(p.frequency, 20, 20000);
+  osc.frequency.value = f0;
 
-  // Path A: original phase.
+  // Path A: original phase (with symmetric half-period base delay).
+  const delayA = ctx.createDelay(1);
+  delayA.delayTime.value = initDelays.delayA;
   const tapA = ctx.createGain();
   const modeA = ctx.createGain();
   const panA = createPanner(ctx);
@@ -76,11 +91,11 @@ export function buildPhase(ctx: AudioContext, out: AudioNode, initial: PhasePara
   analyserA.fftSize = 2048;
   analyserA.smoothingTimeConstant = 0;
 
-  // Path B: polarity-inverted (+ optional fine offset).
+  // Path B: polarity-inverted (+ continuous fine offset around half-period).
   const polarity = ctx.createGain();
   polarity.gain.value = -1; // ← the 180° phase inversion
-  const delay = ctx.createDelay(1);
-  delay.delayTime.value = offsetDelaySeconds(p.frequency, p.offsetDeg);
+  const delayB = ctx.createDelay(1);
+  delayB.delayTime.value = initDelays.delayB;
   const tapB = ctx.createGain();
   const modeB = ctx.createGain();
   const panB = createPanner(ctx);
@@ -88,12 +103,12 @@ export function buildPhase(ctx: AudioContext, out: AudioNode, initial: PhasePara
   analyserB.fftSize = 2048;
   analyserB.smoothingTimeConstant = 0;
 
-  osc.connect(tapA);
+  osc.connect(delayA).connect(tapA);
   tapA.connect(analyserA);
   tapA.connect(modeA).connect(panA.input);
   panA.output.connect(out);
 
-  osc.connect(polarity).connect(delay).connect(tapB);
+  osc.connect(polarity).connect(delayB).connect(tapB);
   tapB.connect(analyserB);
   tapB.connect(modeB).connect(panB.input);
   panB.output.connect(out);
@@ -105,9 +120,11 @@ export function buildPhase(ctx: AudioContext, out: AudioNode, initial: PhasePara
 
   function apply() {
     osc.type = p.waveform;
-    const f = clamp(p.frequency, 20, 20000);
+    const f = clamp(p.frequency, 20, nyquistSafe);
+    const { delayA: dA, delayB: dB } = phaseDelays(f, p.offsetDeg);
     smooth(ctx, osc.frequency, f, 0.01);
-    smooth(ctx, delay.delayTime, offsetDelaySeconds(f, p.offsetDeg), 0.01);
+    smooth(ctx, delayA.delayTime, dA, 0.01);
+    smooth(ctx, delayB.delayTime, dB, 0.01);
     smooth(ctx, tapA.gain, clamp(p.levelA, 0, 1) * HEADROOM, 0.02);
     smooth(ctx, tapB.gain, clamp(p.levelB, 0, 1) * HEADROOM, 0.02);
 
@@ -146,7 +163,7 @@ export function buildPhase(ctx: AudioContext, out: AudioNode, initial: PhasePara
       safeStop(osc, when);
     },
     dispose() {
-      disconnectAll([osc, tapA, modeA, analyserA, polarity, delay, tapB, modeB, analyserB, ...panA.nodes, ...panB.nodes]);
+      disconnectAll([osc, delayA, tapA, modeA, analyserA, polarity, delayB, tapB, modeB, analyserB, ...panA.nodes, ...panB.nodes]);
     },
   };
 }

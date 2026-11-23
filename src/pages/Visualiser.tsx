@@ -1,6 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Play, Square, Activity } from 'lucide-react';
-import { engine, buildCalibration, buildTherapy, volumeToDb } from '../audio';
+import {
+  engine,
+  buildCalibration,
+  buildTherapy,
+  volumeToDb,
+  type CalibrationHandle,
+  type TherapyHandle,
+} from '../audio';
 import { useAppContext } from '../store/AppContext';
 import { useEngine } from '../hooks';
 import { FrequencyControl } from '../components/controls';
@@ -18,12 +25,22 @@ export function Visualiser() {
   const [waveform, setWaveform] = useState<WaveformType>('sine');
   const [noiseColor, setNoiseColor] = useState<NoiseColor>('pink');
 
+  const activeTestModeRef = useRef<'tone' | 'noise' | null>(null);
+  const noiseLayerIdRef = useRef<string>(generateId());
+
   // Real-time DSP metrics (peak frequency & RMS amplitude)
   const [rmsDbfs, setRmsDbfs] = useState<number>(-Infinity);
   const [peakHz, setPeakHz] = useState<number | null>(null);
 
   const isPlaying = snap.status === 'playing';
   const isVisualiserSource = snap.info?.source === 'visualiser';
+  const isVisualiserActive = snap.status !== 'idle' && isVisualiserSource;
+
+  useEffect(() => {
+    if (!isVisualiserActive) {
+      activeTestModeRef.current = null;
+    }
+  }, [isVisualiserActive]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -32,17 +49,22 @@ export function Visualiser() {
       return;
     }
 
+    let scopeBuf: Float32Array<ArrayBuffer> | null = null;
+    let specBins: Float32Array<ArrayBuffer> | null = null;
+
     const id = window.setInterval(() => {
       const scope = engine.scopeAnalyser;
       const spec = engine.spectrumAnalyser;
       const sr = engine.context?.sampleRate ?? 48000;
 
       if (scope) {
-        const buf = new Float32Array(scope.fftSize);
-        scope.getFloatTimeDomainData(buf);
+        if (!scopeBuf || scopeBuf.length !== scope.fftSize) {
+          scopeBuf = new Float32Array(scope.fftSize);
+        }
+        scope.getFloatTimeDomainData(scopeBuf);
         let sum = 0;
-        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
-        const rms = Math.sqrt(sum / buf.length);
+        for (let i = 0; i < scopeBuf.length; i++) sum += scopeBuf[i] * scopeBuf[i];
+        const rms = Math.sqrt(sum / scopeBuf.length);
         const masterDb = volumeToDb(snap.masterVolume);
         const db = rms > 1e-6 && Number.isFinite(masterDb)
           ? 20 * Math.log10(rms) + masterDb
@@ -51,18 +73,20 @@ export function Visualiser() {
       }
 
       if (spec) {
-        const bins = new Float32Array(spec.frequencyBinCount);
-        spec.getFloatFrequencyData(bins);
+        if (!specBins || specBins.length !== spec.frequencyBinCount) {
+          specBins = new Float32Array(spec.frequencyBinCount);
+        }
+        spec.getFloatFrequencyData(specBins);
         let maxIdx = -1;
         let maxVal = -100;
-        for (let i = 1; i < bins.length; i++) {
-          if (bins[i] > maxVal) {
-            maxVal = bins[i];
+        for (let i = 1; i < specBins.length; i++) {
+          if (specBins[i] > maxVal) {
+            maxVal = specBins[i];
             maxIdx = i;
           }
         }
         if (maxIdx > 0) {
-          const binHz = sr / 2 / bins.length;
+          const binHz = sr / 2 / specBins.length;
           setPeakHz(Math.round(maxIdx * binHz));
         } else {
           setPeakHz(null);
@@ -75,6 +99,7 @@ export function Visualiser() {
 
   const startTestSignal = useCallback(async () => {
     if (testMode === 'tone') {
+      activeTestModeRef.current = 'tone';
       await engine.start(
         {
           source: 'visualiser',
@@ -95,6 +120,8 @@ export function Visualiser() {
         { fadeIn: 0.05, fadeOut: 0.05 }
       );
     } else {
+      activeTestModeRef.current = 'noise';
+      const layerId = noiseLayerIdRef.current;
       await engine.start(
         {
           source: 'visualiser',
@@ -106,7 +133,7 @@ export function Visualiser() {
           buildTherapy(ctx, out, {
             layers: [
               {
-                id: generateId(),
+                id: layerId,
                 kind: 'noise',
                 enabled: true,
                 color: noiseColor,
@@ -122,6 +149,58 @@ export function Visualiser() {
       );
     }
   }, [testMode, frequency, waveform, noiseColor]);
+
+  // Push live parameter edits (or mode switches) to the running visualiser test signal
+  useEffect(() => {
+    if (!isVisualiserActive) return;
+
+    if (activeTestModeRef.current && activeTestModeRef.current !== testMode) {
+      void startTestSignal();
+      return;
+    }
+
+    if (testMode === 'tone') {
+      const h = engine.getHandle<CalibrationHandle>('visualiser');
+      if (!h) return;
+      h.update({
+        frequency,
+        waveform,
+        soundType: 'tone',
+        bandwidthOct: 0.33,
+        level: 0.5,
+        ear: 'both',
+        pulsed: false,
+      });
+      engine.updateInfo('visualiser', {
+        label: `Test Tone (${waveform})`,
+        technique: `Visualiser Test (${waveform})`,
+        frequency,
+      });
+    } else {
+      const h = engine.getHandle<TherapyHandle>('visualiser');
+      if (!h) return;
+      h.update({
+        layers: [
+          {
+            id: noiseLayerIdRef.current,
+            kind: 'noise',
+            enabled: true,
+            color: noiseColor,
+            frequency: 1000,
+            bandwidthOct: 0.5,
+            waveform: 'sine',
+            level: 0.55,
+            pan: 0,
+          },
+        ],
+      });
+      engine.updateInfo('visualiser', {
+        label: `Test Noise (${noiseColor})`,
+        technique: `Visualiser Test (${noiseColor} noise)`,
+        frequency: null,
+      });
+    }
+  }, [isVisualiserActive, testMode, frequency, waveform, noiseColor, startTestSignal]);
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -255,7 +334,7 @@ export function Visualiser() {
         )}
 
         <div className="flex items-center gap-3 pt-1">
-          {isPlaying && isVisualiserSource ? (
+          {isVisualiserActive ? (
             <button
               onClick={() => engine.stop(0.05)}
               className="btn-danger text-sm flex items-center gap-2"

@@ -27,6 +27,9 @@ export function Calibration() {
   const [sweepFrom, setSweepFrom] = useState(500);
   const [sweepTo, setSweepTo] = useState(12000);
   const [sweepSec, setSweepSec] = useState(25);
+  const [sweepFromInput, setSweepFromInput] = useState('500');
+  const [sweepToInput, setSweepToInput] = useState('12000');
+  const [sweepSecInput, setSweepSecInput] = useState('25');
   const [sweeping, setSweeping] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
 
@@ -48,9 +51,13 @@ export function Calibration() {
     });
     engine.updateInfo('calibration', {
       frequency,
-      label: soundType === 'tone' ? `Calibration Tone (${waveform})` : 'Calibration Narrowband',
+      label: sweeping
+        ? 'Calibration Sweep'
+        : soundType === 'tone'
+        ? `Calibration Tone (${waveform})`
+        : 'Calibration Narrowband',
     });
-  }, [frequency, waveform, soundType, bandwidthOct, level, ear, pulsed]);
+  }, [frequency, waveform, soundType, bandwidthOct, level, ear, pulsed, sweeping]);
 
   // Track live frequency while a sweep is running
   useEffect(() => {
@@ -107,6 +114,9 @@ export function Calibration() {
     }
 
     let handle = existing;
+    if (handle && snap.status === 'paused') {
+      await engine.resume();
+    }
     if (!handle) {
       handle = await engine.start(
         {
@@ -127,12 +137,18 @@ export function Calibration() {
           }),
         { fadeIn: 0.08, fadeOut: 0.08 }
       );
+    } else {
+      engine.updateInfo('calibration', {
+        label: 'Calibration Sweep',
+        technique: 'Frequency Sweep',
+        frequency: sweepFrom,
+      });
     }
     if (handle) {
       handle.startSweep(sweepFrom, sweepTo, sweepSec);
       setSweeping(true);
     }
-  }, [sweeping, sweepFrom, sweepTo, sweepSec, waveform, soundType, bandwidthOct, level, ear, pulsed]);
+  }, [sweeping, snap.status, sweepFrom, sweepTo, sweepSec, waveform, soundType, bandwidthOct, level, ear, pulsed]);
 
   const handleSave = () => {
     dispatch({
@@ -340,8 +356,21 @@ export function Calibration() {
               type="number"
               min={20}
               max={19000}
-              value={sweepFrom}
-              onChange={(e) => setSweepFrom(Math.max(20, Math.min(19000, parseInt(e.target.value, 10) || 20)))}
+              value={sweepFromInput}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setSweepFromInput(raw);
+                const parsed = parseInt(raw, 10);
+                if (!Number.isNaN(parsed) && parsed >= 20 && parsed <= 19000) {
+                  setSweepFrom(parsed);
+                }
+              }}
+              onBlur={() => {
+                const parsed = parseInt(sweepFromInput, 10);
+                const clamped = Number.isNaN(parsed) ? 500 : Math.max(20, Math.min(19000, parsed));
+                setSweepFrom(clamped);
+                setSweepFromInput(String(clamped));
+              }}
               className="input-field py-1.5 text-xs font-mono"
             />
           </div>
@@ -351,8 +380,21 @@ export function Calibration() {
               type="number"
               min={20}
               max={20000}
-              value={sweepTo}
-              onChange={(e) => setSweepTo(Math.max(20, Math.min(20000, parseInt(e.target.value, 10) || 12000)))}
+              value={sweepToInput}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setSweepToInput(raw);
+                const parsed = parseInt(raw, 10);
+                if (!Number.isNaN(parsed) && parsed >= 20 && parsed <= 20000) {
+                  setSweepTo(parsed);
+                }
+              }}
+              onBlur={() => {
+                const parsed = parseInt(sweepToInput, 10);
+                const clamped = Number.isNaN(parsed) ? 12000 : Math.max(20, Math.min(20000, parsed));
+                setSweepTo(clamped);
+                setSweepToInput(String(clamped));
+              }}
               className="input-field py-1.5 text-xs font-mono"
             />
           </div>
@@ -362,8 +404,21 @@ export function Calibration() {
               type="number"
               min={3}
               max={180}
-              value={sweepSec}
-              onChange={(e) => setSweepSec(Math.max(3, Math.min(180, parseInt(e.target.value, 10) || 25)))}
+              value={sweepSecInput}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setSweepSecInput(raw);
+                const parsed = parseInt(raw, 10);
+                if (!Number.isNaN(parsed) && parsed >= 3 && parsed <= 180) {
+                  setSweepSec(parsed);
+                }
+              }}
+              onBlur={() => {
+                const parsed = parseInt(sweepSecInput, 10);
+                const clamped = Number.isNaN(parsed) ? 25 : Math.max(3, Math.min(180, parsed));
+                setSweepSec(clamped);
+                setSweepSecInput(String(clamped));
+              }}
               className="input-field py-1.5 text-xs font-mono"
             />
           </div>
@@ -390,7 +445,13 @@ export function Calibration() {
           {MUSICAL_NOTES.map((note) => (
             <button
               key={note.name}
-              onClick={() => setFrequency(note.freq)}
+              onClick={() => {
+                if (sweeping) {
+                  engine.getHandle<CalibrationHandle>('calibration')?.stopSweep();
+                  setSweeping(false);
+                }
+                setFrequency(note.freq);
+              }}
               className={`px-2.5 py-1.5 text-xs font-mono rounded-lg transition-all ${
                 Math.abs(frequency - note.freq) <= 3
                   ? 'bg-accent-blue text-white'

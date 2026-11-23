@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar, MobileNav, TransportBar } from './components/layout';
 import { ReliefSessionModal } from './components/common';
 import { usePanicHotkey } from './hooks';
@@ -31,6 +31,7 @@ export default function App() {
             <Route path="/visualiser" element={<Visualiser />} />
             <Route path="/history" element={<SessionHistory onOpenReliefLog={() => setReliefModalOpen(true)} />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
         <TransportBar onOpenReliefLog={() => setReliefModalOpen(true)} />

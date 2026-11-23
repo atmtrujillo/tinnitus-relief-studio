@@ -119,7 +119,9 @@ export function buildCalibration(ctx: AudioContext, out: AudioNode, initial: Cal
 
     const isTone = p.soundType === 'tone';
     smooth(ctx, toneGain.gain, isTone ? TONE_HEADROOM : 0, 0.02);
-    smooth(ctx, nbGain.gain, isTone ? 0 : narrowbandMakeup(ctx.sampleRate, f, p.bandwidthOct), 0.02);
+    if (!sweep || isTone) {
+      smooth(ctx, nbGain.gain, isTone ? 0 : narrowbandMakeup(ctx.sampleRate, f, p.bandwidthOct), 0.02);
+    }
 
     // Gate: steady → gain 1, depth 0. Pulsed → gain 0.5 ± 0.5·LFO.
     smooth(ctx, gate.gain, p.pulsed ? 0.5 : 1, 0.01);
@@ -146,6 +148,13 @@ export function buildCalibration(ctx: AudioContext, out: AudioNode, initial: Cal
         param.setValueAtTime(a, t);
         param.exponentialRampToValueAtTime(b, t + dur);
       }
+      if (p.soundType === 'narrowband') {
+        const gainA = narrowbandMakeup(ctx.sampleRate, a, p.bandwidthOct);
+        const gainB = narrowbandMakeup(ctx.sampleRate, b, p.bandwidthOct);
+        hold(nbGain.gain, ctx.currentTime);
+        nbGain.gain.setValueAtTime(gainA, t);
+        nbGain.gain.exponentialRampToValueAtTime(gainB, t + dur);
+      }
       sweep = { from: a, to: b, t0: t, dur };
     },
     stopSweep() {
@@ -154,6 +163,11 @@ export function buildCalibration(ctx: AudioContext, out: AudioNode, initial: Cal
       for (const param of freqParams) {
         hold(param, t);
         param.setValueAtTime(f, t);
+      }
+      if (p.soundType === 'narrowband') {
+        const g = narrowbandMakeup(ctx.sampleRate, f, p.bandwidthOct);
+        hold(nbGain.gain, t);
+        nbGain.gain.setValueAtTime(g, t);
       }
       sweep = null;
       p.frequency = f;

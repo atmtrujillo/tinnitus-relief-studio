@@ -1,6 +1,8 @@
-import { Pause, Play, Square, Volume2, VolumeX, ClipboardCheck, AlertCircle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Pause, Play, Square, Volume2, VolumeX, ClipboardCheck, AlertCircle, Clock } from 'lucide-react';
 import { engine, volumeToDb } from '../../audio';
 import { useEngine, useElapsedSeconds } from '../../hooks';
+import { useAppContext } from '../../store/AppContext';
 import { formatDuration, formatFrequency, volumeToPercent } from '../../utils';
 
 interface TransportBarProps {
@@ -9,10 +11,12 @@ interface TransportBarProps {
 
 /**
  * Persistent main audio control bar — accessible across every section.
- * Provides Pause/Resume, immediate Stop (Esc), active source & frequency readout,
- * elapsed time, and the master volume slider with dB taper and safety cap.
+ * Provides Pause/Resume, immediate Stop (Esc) even during fade-outs,
+ * active source & frequency readout, elapsed time, listening break reminders,
+ * and the master volume slider with dB taper, mute/unmute toggle, and safety cap.
  */
 export function TransportBar({ onOpenReliefLog }: TransportBarProps) {
+  const { state } = useAppContext();
   const snap = useEngine();
   const elapsed = useElapsedSeconds();
   const db = volumeToDb(snap.masterVolume);
@@ -20,9 +24,73 @@ export function TransportBar({ onOpenReliefLog }: TransportBarProps) {
   const isPlaying = snap.status === 'playing';
   const isPaused = snap.status === 'paused';
   const isActive = isPlaying || isPaused;
+  const canStop = isActive || snap.isFading;
+
+  // Remember last non-zero master volume so the speaker button toggles mute/unmute
+  const lastNonZeroVolRef = useRef<number>(
+    snap.masterVolume > 0 ? snap.masterVolume : state.settings.defaultVolume || 0.15
+  );
+  useEffect(() => {
+    if (snap.masterVolume > 0) {
+      lastNonZeroVolRef.current = snap.masterVolume;
+    }
+  }, [snap.masterVolume]);
+
+  const handleToggleMute = () => {
+    if (snap.masterVolume > 0) {
+      engine.setMasterVolume(0);
+    } else {
+      const restore = Math.min(snap.maxVolume, lastNonZeroVolRef.current || 0.15);
+      engine.setMasterVolume(restore);
+    }
+  };
+
+  // Listening break reminder driven by settings.breakReminderMinutes
+  const breakMins = state.settings.breakReminderMinutes;
+  const [dismissedBreakCount, setDismissedBreakCount] = useState(0);
+
+  useEffect(() => {
+    if (snap.status === 'idle') {
+      setDismissedBreakCount(0);
+    }
+  }, [snap.status, breakMins]);
+
+  const breakIntervalSec = breakMins > 0 ? breakMins * 60 : 0;
+  const completedIntervals = breakIntervalSec > 0 ? Math.floor(elapsed / breakIntervalSec) : 0;
+  const showBreakReminder = isPlaying && breakIntervalSec > 0 && completedIntervals > dismissedBreakCount;
 
   return (
     <footer className="shrink-0 bg-surface-800/95 backdrop-blur-md border-t border-white/10 px-4 py-2.5">
+      {showBreakReminder && (
+        <div className="mb-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              Listening break reminder: you&apos;ve been listening for{' '}
+              <strong className="font-mono">{Math.floor(elapsed / 60)} min</strong>. Consider
+              pausing to rest your ears.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setDismissedBreakCount(completedIntervals);
+                void engine.pause();
+              }}
+              className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 font-medium transition-colors"
+            >
+              Pause Audio
+            </button>
+            <button
+              onClick={() => setDismissedBreakCount(completedIntervals)}
+              className="px-2.5 py-1 rounded bg-surface-700 hover:bg-surface-600 text-gray-300 transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {snap.error && (
         <div className="mb-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
@@ -49,10 +117,10 @@ export function TransportBar({ onOpenReliefLog }: TransportBarProps) {
 
             <button
               onClick={() => engine.panic()}
-              disabled={!isActive}
+              disabled={!canStop}
               title="Immediate Stop (Esc)"
               className={`h-9 px-3 rounded-lg flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider transition-all ${
-                isActive
+                canStop
                   ? 'bg-red-600 hover:bg-red-500 text-white shadow-sm shadow-red-600/30'
                   : 'bg-surface-700 text-gray-600 cursor-not-allowed'
               }`}
@@ -68,13 +136,17 @@ export function TransportBar({ onOpenReliefLog }: TransportBarProps) {
                 className={`w-2 h-2 rounded-full shrink-0 ${
                   isPlaying
                     ? 'bg-accent-green animate-pulse'
-                    : isPaused
+                    : isPaused || snap.isFading
                     ? 'bg-amber-400'
                     : 'bg-gray-600'
                 }`}
               />
               <span className="text-sm font-medium text-gray-100 truncate">
-                {snap.info ? snap.info.label : 'Audio Idle'}
+                {snap.info
+                  ? snap.info.label
+                  : snap.isFading
+                  ? 'Fading out…'
+                  : 'Audio Idle'}
               </span>
               {snap.info?.frequency != null && (
                 <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-accent-blue/15 text-accent-blue shrink-0">
@@ -83,7 +155,13 @@ export function TransportBar({ onOpenReliefLog }: TransportBarProps) {
               )}
             </div>
             <div className="text-[11px] text-gray-500 font-mono flex items-center gap-2">
-              <span>{isActive ? formatDuration(elapsed) : 'No active output'}</span>
+              <span>
+                {isActive
+                  ? formatDuration(elapsed)
+                  : snap.isFading
+                  ? 'Press Stop or Esc to silence immediately'
+                  : 'No active output'}
+              </span>
               {snap.sampleRate && <span>· {(snap.sampleRate / 1000).toFixed(1)} kHz</span>}
               <span className="hidden sm:inline">· Esc = Panic Stop</span>
             </div>
@@ -94,8 +172,9 @@ export function TransportBar({ onOpenReliefLog }: TransportBarProps) {
         <div className="flex items-center gap-4 flex-1 sm:flex-initial justify-end">
           <div className="flex items-center gap-2.5 w-48 sm:w-60">
             <button
-              onClick={() => engine.setMasterVolume(0)}
-              title="Mute master volume"
+              onClick={handleToggleMute}
+              title={snap.masterVolume === 0 ? 'Unmute master volume' : 'Mute master volume'}
+              aria-label={snap.masterVolume === 0 ? 'Unmute master volume' : 'Mute master volume'}
               className="text-gray-400 hover:text-white transition-colors"
             >
               {snap.masterVolume === 0 ? (

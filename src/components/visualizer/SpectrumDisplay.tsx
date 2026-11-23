@@ -50,20 +50,6 @@ export function SpectrumDisplay({
     if (!ctx) return;
 
     let width = container.clientWidth || 600;
-    const resize = () => {
-      width = Math.max(200, container.clientWidth);
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    resize();
-
-    const ro = new ResizeObserver(resize);
-    ro.observe(container);
-
     let bins: Float32Array<ArrayBuffer> | null = null;
     const padBottom = 20;
     const plotH = height - padBottom;
@@ -111,6 +97,21 @@ export function SpectrumDisplay({
         ctx.restore();
       }
     };
+
+    const resize = () => {
+      width = Math.max(200, container.clientWidth);
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!isActive) drawGrid();
+    };
+    resize();
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(container);
 
     const fps = Math.max(10, Math.min(60, state.settings.visualizerFps || 60));
     const frameInterval = 1000 / fps;

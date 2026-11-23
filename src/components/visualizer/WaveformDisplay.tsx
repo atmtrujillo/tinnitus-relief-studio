@@ -47,22 +47,6 @@ export function WaveformDisplay({
     if (!ctx) return;
 
     let width = container.clientWidth || 600;
-    const resize = () => {
-      width = Math.max(200, container.clientWidth);
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    resize();
-
-    const ro = new ResizeObserver(resize);
-    ro.observe(container);
-
-    let bufA: Float32Array<ArrayBuffer> | null = null;
-    let bufB: Float32Array<ArrayBuffer> | null = null;
 
     const drawGrid = () => {
       ctx.fillStyle = '#0a0a0f';
@@ -92,6 +76,34 @@ export function WaveformDisplay({
       ctx.lineTo(width, height / 2);
       ctx.stroke();
     };
+
+    const drawIdle = () => {
+      drawGrid();
+      ctx.strokeStyle = color + '66';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, height / 2);
+      ctx.lineTo(width, height / 2);
+      ctx.stroke();
+    };
+
+    const resize = () => {
+      width = Math.max(200, container.clientWidth);
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!isActive) drawIdle();
+    };
+    resize();
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(container);
+
+    let bufA: Float32Array<ArrayBuffer> | null = null;
+    let bufB: Float32Array<ArrayBuffer> | null = null;
 
     /** Find a rising zero-crossing in the first half of the buffer for trigger lock. */
     const findTrigger = (data: Float32Array, maxSearch: number): number => {
@@ -142,12 +154,7 @@ export function WaveformDisplay({
       const primary = analyser !== undefined ? analyser : engine.scopeAnalyser;
 
       if (!isActive || !primary) {
-        ctx.strokeStyle = color + '66';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(0, height / 2);
-        ctx.lineTo(width, height / 2);
-        ctx.stroke();
+        drawIdle();
         return;
       }
 

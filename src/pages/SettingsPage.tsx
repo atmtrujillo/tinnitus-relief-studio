@@ -14,7 +14,11 @@ export function SettingsPage() {
 
   const handleSave = () => {
     const safeDefault = Math.min(settings.defaultVolume, settings.maxVolume);
-    const next = { ...settings, defaultVolume: safeDefault };
+    const next = {
+      ...settings,
+      defaultVolume: safeDefault,
+      safetyAcknowledged: state.settings.safetyAcknowledged,
+    };
     setSettings(next);
     dispatch({ type: 'UPDATE_SETTINGS', payload: next });
     engine.setMaxVolume(next.maxVolume);
@@ -34,6 +38,8 @@ export function SettingsPage() {
       engine.panic();
       dispatch({ type: 'RESET_ALL' });
       setSettings(DEFAULT_SETTINGS);
+      engine.setMaxVolume(DEFAULT_SETTINGS.maxVolume);
+      engine.setMasterVolume(DEFAULT_SETTINGS.defaultVolume);
     }
   };
 

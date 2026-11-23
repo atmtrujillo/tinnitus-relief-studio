@@ -63,7 +63,7 @@ src/
 │   ├── noise.ts            # Seamless stereo white, pink & brown noise buffer synthesis
 │   └── nodes.ts            # Smooth AudioParam ramps, Butterworth filters, panner & LFO helpers
 ├── components/
-│   ├── common/             # SafetyBanner, EmergencyStop, ReliefSessionModal
+│   ├── common/             # SafetyBanner, ReliefSessionModal
 │   ├── controls/           # FrequencyControl, VolumeSlider
 │   ├── layout/             # Sidebar, MobileNav, TransportBar
 │   └── visualizer/         # WaveformDisplay (oscilloscope), SpectrumDisplay (log FFT)
@@ -105,9 +105,10 @@ npm run dev
 
 Open the local URL printed by Vite (by default `http://localhost:5173`).
 
-### Production Build
+### Tests & Production Build
 
 ```bash
+npm test
 npm run build
 npm run preview
 ```

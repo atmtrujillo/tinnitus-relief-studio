@@ -10,14 +10,14 @@ import { DEFAULT_SETTINGS } from '../types';
 import { storage } from '../utils';
 import { engine } from '../audio';
 
-const INITIAL_STATE: AppState = {
+export const INITIAL_STATE: AppState = {
   tinnitusProfile: null,
   presets: [],
   sessions: [],
   settings: DEFAULT_SETTINGS,
 };
 
-type Action =
+export type Action =
   | { type: 'SET_TINNITUS_PROFILE'; payload: TinnitusProfile | null }
   | { type: 'SAVE_PRESET'; payload: TherapyPreset }
   | { type: 'DELETE_PRESET'; payload: string }
@@ -27,7 +27,7 @@ type Action =
   | { type: 'UPDATE_SETTINGS'; payload: Partial<AppSettings> }
   | { type: 'RESET_ALL' };
 
-function appReducer(state: AppState, action: Action): AppState {
+export function appReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'SET_TINNITUS_PROFILE':
       return { ...state, tinnitusProfile: action.payload };
