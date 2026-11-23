@@ -11,6 +11,14 @@ A browser-based, real-time audio engineering and experimentation studio designed
 
 ---
 
+## Preview (Silent Walkthrough)
+
+![Tinnitus Relief Studio silent demo walkthrough](docs/demo.gif)
+
+*Silent 25-second walkthrough (no audio track) covering Dashboard, Calibration sweep & pitch lock, Phase Inversion (`0°`/`180°` dual-trace & `Sum A + B` destructive interference), Notched Pink Noise Sound Therapy, live Audio Visualiser, and Session History. Full HD silent video: [docs/demo.mp4](docs/demo.mp4).*
+
+---
+
 ## Features
 
 1. **Dashboard** — Overview of your calibrated tinnitus profile, session statistics, live audio monitor, and quick navigation.
