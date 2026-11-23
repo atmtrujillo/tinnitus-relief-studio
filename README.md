@@ -1,5 +1,7 @@
 # Tinnitus Relief Studio
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A browser-based, real-time audio engineering and experimentation studio designed to help people identify the perceived pitch of their tinnitus, explore experimental acoustic techniques (including phase inversion), build personalised masking/sound-therapy mixes, and track subjective relief over time.
 
 > **Important Scientific & Medical Disclaimer**
@@ -124,3 +126,13 @@ npm run preview
 ## Browser Support
 
 Tested with modern **Chrome**, **Edge**, and **Safari** (includes `webkitAudioContext` fallback, `StereoPannerNode` fallback for older Safari, and Firefox-safe `AudioParam` hold handling).
+
+---
+
+## Contributing
+
+Contributions, bug reports, and ideas are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+## License
+
+Released under the [MIT License](LICENSE). Copyright © 2026 Alex Trujillo.

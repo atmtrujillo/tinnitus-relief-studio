@@ -2,6 +2,16 @@
   "name": "tinnitus-relief-studio",
   "private": true,
   "version": "1.0.0",
+  "description": "Browser-based real-time Web Audio studio for tinnitus pitch calibration, sound therapy mixing, phase experimentation, and audio visualisation.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/atmtrujillo/tinnitus-relief-studio.git"
+  },
+  "homepage": "https://github.com/atmtrujillo/tinnitus-relief-studio#readme",
+  "bugs": {
+    "url": "https://github.com/atmtrujillo/tinnitus-relief-studio/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
