@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a3a #12121a;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: #12121a;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #2a2a3a;
+    border-radius: 3px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: #3a3a4a;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-surface-800/80 backdrop-blur-sm border border-white/5 rounded-xl;
+  }
+  .glass-panel-dark {
+    @apply bg-surface-900/90 backdrop-blur-sm border border-white/5 rounded-xl;
+  }
+  .btn-primary {
+    @apply px-4 py-2 bg-accent-blue hover:bg-accent-blue/80 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-danger {
+    @apply px-4 py-2 bg-accent-red hover:bg-accent-red/80 text-white rounded-lg font-medium transition-all duration-200;
+  }
+  .btn-secondary {
+    @apply px-4 py-2 bg-surface-600 hover:bg-surface-500 text-gray-200 rounded-lg font-medium transition-all duration-200;
+  }
+  .input-field {
+    @apply w-full bg-surface-700 border border-white/10 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent-blue/50 focus:border-accent-blue/50 transition-all;
+  }
+  .slider-track {
+    @apply appearance-none w-full h-1.5 bg-surface-600 rounded-full outline-none;
+  }
+  .slider-track::-webkit-slider-thumb {
+    @apply appearance-none w-4 h-4 bg-accent-blue rounded-full cursor-pointer hover:bg-accent-blue/80 transition-colors;
+  }
+  .slider-track::-moz-range-thumb {
+    @apply w-4 h-4 bg-accent-blue rounded-full cursor-pointer border-0 hover:bg-accent-blue/80 transition-colors;
+  }
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-surface-600/50 transition-all duration-200 cursor-pointer;
+  }
+  .nav-item-active {
+    @apply text-accent-blue bg-accent-blue/10 hover:text-accent-blue;
+  }
+}
+
+/* Canvas visualiser styles */
+canvas {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
