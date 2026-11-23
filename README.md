@@ -6,10 +6,11 @@ A browser-based, real-time audio engineering and experimentation studio designed
 
 > **Important Scientific & Medical Disclaimer**
 >
-> Tinnitus Relief Studio is an **experimental audio tool**, not a medical device or clinical hearing test. It does not diagnose, treat, or cure tinnitus or any hearing condition.
+> Tinnitus Relief Studio is an **experimental audio tool** provided for personal experimentation and educational purposes only, at your own risk, with **no guarantee of relief**. It is **not a medical device or clinical hearing test** and does not diagnose, treat, cure, or prevent tinnitus or any hearing condition.
 >
-> - **Phase inversion** operates on physical sound waves in air (destructive interference), not on internally generated tinnitus perception. Treat the Phase Inversion Experiment strictly as an exploratory feature, not a clinically validated treatment.
-> - **Audio safety:** Browser volume sliders cannot measure or guarantee a safe acoustic sound pressure level (dB SPL) at your ears. Always start at a low volume, keep playback comfortable and below the level of your tinnitus, avoid prolonged exposure to loud sounds, and consult an audiologist or healthcare professional for tinnitus concerns.
+> - **Experimental techniques:** **Phase inversion** operates on physical sound waves in air (destructive interference), not on internally generated tinnitus perception. **Notched sound therapy** has mixed clinical evidence. Treat both strictly as exploratory features, not clinically validated treatments.
+> - **Audio safety & hyperacusis:** Browser volume sliders cannot measure or guarantee a safe acoustic sound pressure level (dB SPL) at your ears. Always start at a **low, comfortable volume** (never loud, even if your tinnitus feels loud), take regular breaks, and **stop immediately** (click **Stop** or press `Esc`) if any sound causes discomfort, pain, sound sensitivity (hyperacusis), or worsens your tinnitus.
+> - **When to seek medical care:** Consult an audiologist or healthcare professional for tinnitus concerns — especially if your tinnitus is **sudden in onset**, **one-sided (unilateral)**, **pulsatile (rhythmic/heartbeat-like)**, or accompanied by **sudden hearing loss, ear pain, or dizziness/vertigo**.
 
 ---
 

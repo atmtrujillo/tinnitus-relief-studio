@@ -164,14 +164,23 @@ export function SettingsPage() {
         <div className="text-xs text-gray-300/80 space-y-2 leading-relaxed">
           <p>
             Tinnitus Relief Studio is an experimental sound-generation tool running locally in
-            your browser. It is <strong className="text-white">not a medical device</strong>{' '}
-            and does not diagnose, treat, or cure tinnitus or hearing loss.
+            your browser, provided at your own risk with no guarantee of relief. It is{' '}
+            <strong className="text-white">not a medical device or clinical hearing test</strong>{' '}
+            and does not diagnose, treat, cure, or prevent tinnitus or hearing loss.
           </p>
           <p>
             Conventional acoustic phase cancellation operates on physical sound waves in air
-            and cannot be assumed to cancel internally generated tinnitus perception. Keep
-            playback comfortable and below the perceived loudness of your tinnitus, and avoid
-            prolonged exposure to loud sounds.
+            and cannot cancel internally generated tinnitus perception, and clinical evidence
+            for notched sound therapy is mixed. Always keep playback at a low, comfortable
+            volume (never loud, even if your tinnitus feels loud), and stop immediately
+            (<strong>Stop</strong> or <code className="text-gray-200">Esc</code>) if any sound
+            causes discomfort, pain, hyperacusis, or worsens your tinnitus.
+          </p>
+          <p>
+            Consult an audiologist or healthcare professional for tinnitus concerns —
+            especially if your tinnitus is sudden in onset, one-sided (unilateral), pulsatile
+            (rhythmic/heartbeat-like), or accompanied by hearing loss, ear pain, or
+            dizziness/vertigo.
           </p>
         </div>
       </div>

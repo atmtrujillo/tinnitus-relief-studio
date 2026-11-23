@@ -5,6 +5,7 @@ import { useAppContext } from '../store/AppContext';
 import { useEngine } from '../hooks';
 import { FrequencyControl } from '../components/controls';
 import { WaveformDisplay, SpectrumDisplay } from '../components/visualizer';
+import { SafetyBanner } from '../components/common';
 import { formatFrequency, generateId } from '../utils';
 import type { NoiseColor, WaveformType } from '../types';
 
@@ -139,6 +140,8 @@ export function Visualiser() {
       </div>
 
       {/* Live telemetry cards */}
+      <SafetyBanner />
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="glass-panel p-4">
           <span className="text-xs text-gray-500 block">Target / Active Freq</span>

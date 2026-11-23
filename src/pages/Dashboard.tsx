@@ -210,9 +210,12 @@ export function Dashboard({ onOpenReliefLog }: DashboardProps) {
           <h3 className="font-semibold text-amber-200 mb-1">Scientific & Medical Note</h3>
           <p className="text-xs text-amber-200/70 leading-relaxed">
             Tinnitus Relief Studio is an experimental audio tool, not a clinical hearing
-            test or medical device. Acoustic phase cancellation cannot cancel internally
-            generated tinnitus. Always keep volume comfortable and below your tinnitus
-            level.
+            test or medical device, with no guarantee of relief. Acoustic phase
+            cancellation cannot cancel internally generated tinnitus, and notched sound
+            evidence is mixed. Always keep playback at a low, comfortable volume (never
+            loud, even if your tinnitus feels loud), and seek medical care promptly for
+            sudden, one-sided, or pulsatile tinnitus, or accompanying hearing loss or
+            dizziness.
           </p>
         </div>
       </div>

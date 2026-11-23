@@ -12,9 +12,11 @@ export function SafetyBanner() {
       <div className="flex-1">
         <p className="text-sm text-amber-200 font-medium">Audio Safety Notice</p>
         <p className="text-xs text-amber-200/70 mt-1">
-          Start at a low volume and increase gradually. This application cannot measure
-          actual sound pressure levels from your headphones. Never listen at levels that
-          cause discomfort. Take regular breaks. This is not a medical device.
+          Start at a low, comfortable volume (never loud, even if your tinnitus feels loud).
+          This app cannot measure actual sound pressure levels (dB SPL) from your headphones.
+          Stop immediately (<strong>Stop</strong> or <kbd className="px-1 py-0.5 rounded bg-amber-500/20 font-mono text-[10px]">Esc</kbd>) if any sound causes discomfort, triggers sound
+          sensitivity (hyperacusis), or worsens your tinnitus. Take regular breaks. This is
+          an experimental tool, not a medical device.
         </p>
       </div>
       <button

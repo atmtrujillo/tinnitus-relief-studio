@@ -393,6 +393,12 @@ export function SoundTherapy() {
                   }
                   className="slider-track"
                 />
+                {layer.kind === 'notched' && (
+                  <p className="text-[11px] text-amber-200/70 mt-1.5">
+                    Experimental: clinical evidence for notched sound therapy is mixed; treat
+                    it as an exploratory listening option rather than a validated treatment.
+                  </p>
+                )}
               </div>
             )}
 
